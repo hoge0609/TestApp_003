@@ -7,12 +7,18 @@ import android.util.Size
 
 // カメラデータクラス
 class CameraData {
+    // チェックフラグ
+    public var m_checkFlag: Boolean = false
     // カメラID
     public var m_cameraId: String = ""
     // カメラ名
     public var m_cameraName: String = ""
+    // カメラの向き
+    public var m_direction: Int? = null
+    // センサーの向き
+    public var m_sensorOrientation: Int? = null
     // カメラサイズリスト
-    public lateinit var m_cameraSizeList: Array<Size?>
+    public var m_cameraSizeList: Array<Size?>? = null
 
     // コンストラクタ
     constructor(cameraId:String, manager: CameraManager) {
@@ -24,12 +30,13 @@ class CameraData {
         try {
             // カメラID登録
             m_cameraId = cameraId
-            setName = ("[" + cameraId + "] ")
+            setName = ("[" + m_cameraId + "] ")
 
             // カメラの向きを取得
-            characteristics = manager.getCameraCharacteristics(cameraId)
+            characteristics = manager.getCameraCharacteristics(m_cameraId)
+            m_direction = characteristics.get(CameraCharacteristics.LENS_FACING)
 
-            when (characteristics.get(CameraCharacteristics.LENS_FACING)) {
+            when (m_direction) {
                 CameraCharacteristics.LENS_FACING_FRONT -> {
                     // インカメラ
                     setName += ("IN CAMERA")
@@ -48,6 +55,8 @@ class CameraData {
             }
             // カメラ名登録
             m_cameraName = setName
+            // センサーの向き
+            m_sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION)
 
             // コンフィグ取得
             val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
@@ -60,14 +69,18 @@ class CameraData {
                 throw Exception()
             }
             count = sizes.size
+
             m_cameraSizeList = arrayOfNulls(count)
 
             for (size in sizes) {
                 // カメラサイズリストに登録
-                m_cameraSizeList.set(index, size)
+                m_cameraSizeList?.set(index, size)
                 index ++
             }
+
+            m_checkFlag = true
         } catch (ex: Exception) {
+            m_checkFlag = false
         }
     }
 

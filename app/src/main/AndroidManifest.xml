@@ -3,6 +3,7 @@
     package="com.example.testapp_003">
     <!-- Permission -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application
@@ -12,7 +13,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.TestApp_003">
-        <activity android:name=".PhotoCamera"></activity>
+        <activity android:name=".VideoCamera"></activity>
+        <activity android:name=".PhotoCamera" />
         <activity android:name=".DeviceInfo" />
         <activity android:name=".CameraInfo" />
         <activity android:name=".MainActivity">

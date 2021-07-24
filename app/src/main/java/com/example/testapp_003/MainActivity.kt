@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity() {
         // パーミッションリスト作成
         val permissions: Array<String?> = arrayOf(
             Manifest.permission.CAMERA,                     // カメラ
+            Manifest.permission.RECORD_AUDIO,               // 音声録音
             Manifest.permission.WRITE_EXTERNAL_STORAGE      // ストレージへの書き込み
         )
         // パーミッションのチェック
@@ -90,7 +91,7 @@ class MainActivity : AppCompatActivity() {
     // リストビュー初期化
     fun initListView_01() {
         // リストビューに登録するデータ配列
-        val array = arrayOf("デバイス情報", "カメラ情報", "写真撮影")
+        val array = arrayOf("デバイス情報", "カメラ情報", "写真撮影", "動画撮影")
         // リストビュー取得
         val listView = findViewById<ListView>(R.id.listView_01)
         // ArrayAdapterの生成
@@ -118,6 +119,10 @@ class MainActivity : AppCompatActivity() {
                     // 写真カメラクラス開始
                     startActivity(Intent(this, PhotoCamera::class.java))
                 }
+                "動画撮影" -> {
+                    // ビデオカメラクラス開始
+                    startActivity(Intent(this, VideoCamera::class.java))
+                }
             }
         }
     }
@@ -139,8 +144,8 @@ class MainActivity : AppCompatActivity() {
 
     // アプリ終了
     fun closeApp() {
-        this.finish();
-        this.moveTaskToBack(true);
+        this.finish()
+        this.moveTaskToBack(true)
     }
 
 }
