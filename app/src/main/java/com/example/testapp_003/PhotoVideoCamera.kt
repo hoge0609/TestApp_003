@@ -34,8 +34,6 @@ class PhotoVideoCamera : AppCompatActivity() {
     private lateinit var m_cameraManager: CameraManager
     // カメラデータクラスリスト
     private lateinit var m_cameraDataList: Array<CameraData?>
-    // カレントカメラINDEX
-    private var m_currentCameraIndex: Int = 0
 
     // カメラデバイス
     private var m_cameraDevice: CameraDevice? = null
@@ -74,8 +72,9 @@ class PhotoVideoCamera : AppCompatActivity() {
     private val def_cameraModePhoto: Int = 0
     // カメラモード：ビデオカメラ
     private val def_cameraModeVideo: Int = 1
-    // カレントカメラモード
-    private var m_currentCameraMode: Int = def_cameraModePhoto
+
+    // 設定データクラス
+    private var m_settingData: SettingData? = null
 
     private val SENSOR_ORIENTATION_DEFAULT_DEGREES = 90
     private val SENSOR_ORIENTATION_INVERSE_DEGREES = 270
@@ -111,6 +110,8 @@ class PhotoVideoCamera : AppCompatActivity() {
 
         // カメラクローズ
         closeCamera()
+        // 設定データクラス
+        m_settingData = null
     }
 
     // アクティビティ再開
@@ -138,6 +139,13 @@ class PhotoVideoCamera : AppCompatActivity() {
         var index: Int = 0
 
         try {
+            // 設定データクラス
+            m_settingData = SettingData(this)
+            if (m_settingData?.m_checkFlag == false) {
+                msg = "設定データ初期化エラー"
+                throw Exception()
+            }
+
             // 撮影中フラグ登録
             this.setIsRecordingFlag(false)
 
@@ -169,8 +177,6 @@ class PhotoVideoCamera : AppCompatActivity() {
                 m_cameraDataList.set(index, CameraData(cameraId, m_cameraManager))
                 index ++
             }
-            // カレントカメラINDEX
-            m_currentCameraIndex = 0
 
             ret = true
         } catch (ex: Exception) {
@@ -223,7 +229,7 @@ class PhotoVideoCamera : AppCompatActivity() {
 
         try {
             // カメラデータ取得
-            cameraData = m_cameraDataList.get(m_currentCameraIndex)
+            cameraData = m_cameraDataList.get(m_settingData?.getCameraIndex()!!)
             // センサーの向き取得
             m_sensorOrientation = cameraData?.m_sensorOrientation
             // カメラサイズリストから録画・プレビューのサイズ取得
@@ -256,7 +262,7 @@ class PhotoVideoCamera : AppCompatActivity() {
                         // Button_13テキストの登録
                         setButton_13Text("カメラ終了")
                         // TextView_03テキストの登録
-                        setTextView_03Text(m_cameraDataList.get(m_currentCameraIndex)?.m_cameraName.toString())
+                        setTextView_03Text(m_cameraDataList.get(m_settingData?.getCameraIndex()!!)?.m_cameraName.toString())
                         // プレビュー開始
                         startPreview()
                     }
@@ -565,7 +571,7 @@ class PhotoVideoCamera : AppCompatActivity() {
         // テキストビュー取得
         var textView: TextView = findViewById<TextView>(R.id.textView_04)
 
-        when (m_currentCameraMode) {
+        when (m_settingData?.getCameraMode()) {
             def_cameraModePhoto -> {
                 setStr = "写真カメラ"
             }
@@ -632,7 +638,7 @@ class PhotoVideoCamera : AppCompatActivity() {
         Log.d("button_14", buttonText.toString())
         var index: Int = 0
         // 選択アイテムINDEX
-        var selectIndex: Int = m_currentCameraIndex
+        var selectIndex: Int = m_settingData?.getCameraIndex()!!
         // カメラ名リスト
         var cameraNameList: Array<String?>
 
@@ -649,7 +655,7 @@ class PhotoVideoCamera : AppCompatActivity() {
                 // カメラ選択ダイアログ表示
                 AlertDialog.Builder(this)
                     .setTitle("カメラ選択")
-                    .setSingleChoiceItems(cameraNameList, m_currentCameraIndex, { dialog, which ->
+                    .setSingleChoiceItems(cameraNameList, m_settingData?.getCameraIndex()!!, { dialog, which ->
                         // アイテム選択
                         // 選択アイテムINDEX更新
                         selectIndex = which
@@ -657,9 +663,9 @@ class PhotoVideoCamera : AppCompatActivity() {
                     .setPositiveButton("OK", { dialog, which ->
                         // 決定ボタン押下
                         // カレントカメラINDEXと選択アイテムINDEXを比較
-                        if (m_currentCameraIndex != selectIndex) {
+                        if (m_settingData?.getCameraIndex() != selectIndex) {
                             // カレントカメラINDEXを更新
-                            m_currentCameraIndex = selectIndex
+                            m_settingData?.setCameraIndex(selectIndex)
                             // カメラクローズ
                             closeCamera()
                             // カメラオープン
@@ -673,7 +679,7 @@ class PhotoVideoCamera : AppCompatActivity() {
 
     fun onClickButton_15(view: View) {
         // カレントカメラモードをチェック
-        when (m_currentCameraMode) {
+        when (m_settingData?.getCameraMode()) {
             def_cameraModePhoto -> {
                 // 写真撮影
                 photoShooting(Bitmap.CompressFormat.JPEG)
@@ -699,7 +705,7 @@ class PhotoVideoCamera : AppCompatActivity() {
         var buttonText = (view as Button).text
         Log.d("button_16", buttonText.toString())
         // 選択アイテムINDEX
-        var selectIndex: Int = m_currentCameraMode
+        var selectIndex: Int = m_settingData?.getCameraMode()!!
         // モード名リスト
         var modeNameList: Array<String?> = arrayOf("写真撮影", "動画撮影")
 
@@ -709,7 +715,7 @@ class PhotoVideoCamera : AppCompatActivity() {
                 // モード選択ダイアログ表示
                 AlertDialog.Builder(this)
                     .setTitle("モード選択")
-                    .setSingleChoiceItems(modeNameList, m_currentCameraMode, { dialog, which ->
+                    .setSingleChoiceItems(modeNameList, m_settingData?.getCameraMode()!!, { dialog, which ->
                         // アイテム選択
                         // 選択アイテムINDEX更新
                         selectIndex = which
@@ -717,11 +723,11 @@ class PhotoVideoCamera : AppCompatActivity() {
                     .setPositiveButton("OK", { dialog, which ->
                         // 決定ボタン押下
                         // カレントカメラモードと選択アイテムINDEXを比較
-                        if (m_currentCameraMode != selectIndex) {
+                        if (m_settingData?.getCameraMode() != selectIndex) {
                             // カメラクローズ
                             closeCamera()
                             // カレントカメラモードを更新
-                            m_currentCameraMode = selectIndex
+                            m_settingData?.setCameraMode(selectIndex)
                             // 撮影中フラグ登録
                             setIsRecordingFlag(false)
                             // カメラオープン
@@ -741,7 +747,7 @@ class PhotoVideoCamera : AppCompatActivity() {
         m_isRecordingFlag = recording
 
         // カレントカメラモードをチェック
-        when (m_currentCameraMode) {
+        when (m_settingData?.getCameraMode()) {
             def_cameraModePhoto -> {
                 // テキスト
                 button.text = "写真撮影"
