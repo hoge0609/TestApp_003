@@ -13,7 +13,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.TestApp_003">
-        <activity android:name=".VideoCamera"></activity>
+        <activity android:name=".PhotoVideoCamera"></activity>
+        <activity android:name=".VideoCamera" />
         <activity android:name=".PhotoCamera" />
         <activity android:name=".DeviceInfo" />
         <activity android:name=".CameraInfo" />

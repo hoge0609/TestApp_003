@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity() {
     // リストビュー初期化
     fun initListView_01() {
         // リストビューに登録するデータ配列
-        val array = arrayOf("デバイス情報", "カメラ情報", "写真撮影", "動画撮影")
+        val array = arrayOf("デバイス情報", "カメラ情報", "写真撮影", "動画撮影", "写真・動画撮影")
         // リストビュー取得
         val listView = findViewById<ListView>(R.id.listView_01)
         // ArrayAdapterの生成
@@ -122,6 +122,10 @@ class MainActivity : AppCompatActivity() {
                 "動画撮影" -> {
                     // ビデオカメラクラス開始
                     startActivity(Intent(this, VideoCamera::class.java))
+                }
+                "写真・動画撮影" -> {
+                    // 写真・動画カメラクラス開始
+                    startActivity(Intent(this, PhotoVideoCamera::class.java))
                 }
             }
         }
