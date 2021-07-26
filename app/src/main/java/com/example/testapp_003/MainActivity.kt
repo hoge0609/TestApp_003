@@ -10,6 +10,8 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 
+//テスト（k-takenoshita）
+
 // メインクラス
 class MainActivity : AppCompatActivity() {
     // パーミッションリクエストコード
