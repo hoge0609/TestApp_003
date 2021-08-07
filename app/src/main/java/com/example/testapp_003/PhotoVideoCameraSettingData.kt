@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 
 // 設定データクラス
-class SettingData {
+class PhotoVideoCameraSettingData {
     // チェックフラグ
     public var m_checkFlag: Boolean = false
     // 共有設定オブジェクト
@@ -19,7 +19,7 @@ class SettingData {
     constructor(context: Context) {
         try {
             // インスタンス取得
-            m_sharedPreferences = context.getSharedPreferences("settingData", Context.MODE_PRIVATE)
+            m_sharedPreferences = context.getSharedPreferences("photoVideoCameraSettingData", Context.MODE_PRIVATE)
 
             // カメラINDEX
             m_cameraIndex = m_sharedPreferences.getInt("cameraIndex", 0)

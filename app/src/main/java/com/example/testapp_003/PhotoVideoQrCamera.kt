@@ -22,12 +22,17 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
+import com.google.zxing.ResultPoint
+import com.journeyapps.barcodescanner.BarcodeCallback
+import com.journeyapps.barcodescanner.BarcodeResult
+import com.journeyapps.barcodescanner.CompoundBarcodeView
+import com.journeyapps.barcodescanner.camera.CameraSettings
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDateTime
 
-// 写真・動画カメラクラス
-class PhotoVideoCamera : AppCompatActivity() {
+// 写真・動画・QRコードカメラクラス
+class PhotoVideoQrCamera : AppCompatActivity() {
     // テクスチャビュー
     private lateinit var m_textureView: TextureView
     // カメラマネージャー
@@ -37,6 +42,11 @@ class PhotoVideoCamera : AppCompatActivity() {
 
     // カメラデバイス
     private var m_cameraDevice: CameraDevice? = null
+
+    // バーコードビュー
+    private lateinit var m_qrView: CompoundBarcodeView
+    // バーコードテキスト
+    private var m_qrText: String = ""
 
     // キャプチャーセッション
     private var m_captureSession: CameraCaptureSession? = null
@@ -72,9 +82,11 @@ class PhotoVideoCamera : AppCompatActivity() {
     private val def_cameraModePhoto: Int = 0
     // カメラモード：ビデオカメラ
     private val def_cameraModeVideo: Int = 1
+    // カメラモード：QRカメラ
+    private val def_cameraModeQr: Int = 2
 
     // 設定データクラス
-    private var m_settingData: PhotoVideoCameraSettingData? = null
+    private var m_settingData: PhotoVideoQrCameraSettingData? = null
 
     private val SENSOR_ORIENTATION_DEFAULT_DEGREES = 90
     private val SENSOR_ORIENTATION_INVERSE_DEGREES = 270
@@ -94,19 +106,19 @@ class PhotoVideoCamera : AppCompatActivity() {
     // アクティビティ作成
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_photo_video_camera)
-        Log.d("PhotoVideoCamera", "onCreate")
-        Toast.makeText(this, "PhotoVideoCamera::onCreate", Toast.LENGTH_SHORT).show()
+        setContentView(R.layout.activity_photo_video_qr_camera)
+        Log.d("PhotoVideoQrCamera", "onCreate")
+        Toast.makeText(this, "PhotoVideoQrCamera::onCreate", Toast.LENGTH_SHORT).show()
 
         // コンポーネント初期化
-        this.initComponent()
+        initComponent()
     }
 
     // アクティビティ破棄
     override fun onDestroy() {
         super.onDestroy()
-        Log.d("PhotoVideoCamera", "onDestroy")
-        Toast.makeText(this, "PhotoVideoCamera::onDestroy", Toast.LENGTH_SHORT).show()
+        Log.d("PhotoVideoQrCamera", "onDestroy")
+        Toast.makeText(this, "PhotoVideoQrCamera::onDestroy", Toast.LENGTH_SHORT).show()
 
         // カメラクローズ
         closeCamera()
@@ -117,8 +129,8 @@ class PhotoVideoCamera : AppCompatActivity() {
     // アクティビティ再開
     override fun onResume() {
         super.onResume()
-        Log.d("PhotoVideoCamera", "onResume")
-        Toast.makeText(this, "PhotoVideoCamera::onResume", Toast.LENGTH_SHORT).show()
+        Log.d("PhotoVideoQrCamera", "onResume")
+        Toast.makeText(this, "PhotoVideoQrCamera::onResume", Toast.LENGTH_SHORT).show()
 
         // カメラオープン
         openCamera()
@@ -140,17 +152,14 @@ class PhotoVideoCamera : AppCompatActivity() {
 
         try {
             // 設定データクラス
-            m_settingData = PhotoVideoCameraSettingData(this)
+            m_settingData = PhotoVideoQrCameraSettingData(this)
             if (m_settingData?.m_checkFlag == false) {
                 msg = "設定データ初期化エラー"
                 throw Exception()
             }
 
-            // 撮影中フラグ登録
-            this.setIsRecordingFlag(false)
-
             // テクスチャビュー初期化
-            m_textureView = findViewById<TextureView>(R.id.textureView_03)
+            m_textureView = findViewById<TextureView>(R.id.textureView_04)
             // サーフェイステクスチャのサイズ登録
             m_textureView.surfaceTexture?.setDefaultBufferSize(
                 m_textureView.width,    // テクスチャビューの幅
@@ -178,40 +187,143 @@ class PhotoVideoCamera : AppCompatActivity() {
                 index ++
             }
 
+            // バーコードビュー初期化
+            m_qrView = findViewById<CompoundBarcodeView>(R.id.qr_view_02)
+            // バーコードビューテキストをクリア
+            m_qrView.statusView?.text = ""
+
+            // 撮影中フラグ登録
+            setIsRecordingFlag(false)
+
             ret = true
         } catch (ex: Exception) {
-            Log.d("PhotoVideoCamera", ("initComponent -> " + msg))
-            Toast.makeText(this, ("PhotoVideoCamera::initComponent -> " + msg), Toast.LENGTH_SHORT).show()
+            Log.d("PhotoVideoQrCamera", ("initComponent -> " + msg))
+            Toast.makeText(this, ("PhotoVideoQrCamera::initComponent -> " + msg), Toast.LENGTH_SHORT).show()
             ret = false
-        }
-        if (ret == false) {
-            // アクティビティ終了
-            finish()
+        } finally {
+            if (ret == false) {
+                // アクティビティ終了
+                finish()
+            }
         }
 
         return ret
     }
 
+    // コンポーネントのセットアップ
+    private fun setupComponent() {
+        var textureViewVisibility: Int = View.INVISIBLE
+        var qrViewVisibility: Int = View.INVISIBLE
+        var textView_08Visibility: Int = View.INVISIBLE
+        var button_22Visibility: Int = View.INVISIBLE
+        var button_22Text: String = ""
+        var textView_06Text: String = m_cameraDataList.get(m_settingData?.getCameraIndex()!!)?.m_cameraName.toString()
+        var textView_07Text: String = ""
+        var textView_08Text: String = ""
+        var button_22BackgroundColor: Int = def_waitingButtonColor
+
+        // カメラモードをチェック
+        when (m_settingData?.getCameraMode()) {
+            def_cameraModePhoto -> {    // 写真カメラ
+                textureViewVisibility = View.VISIBLE
+                button_22Visibility = View.VISIBLE
+                button_22Text = "写真撮影"
+                textView_07Text = "写真カメラ"
+            }
+            def_cameraModeVideo -> {    // ビデオカメラ
+                textureViewVisibility = View.VISIBLE
+                button_22Visibility = View.VISIBLE
+                textView_07Text = "ビデオカメラ"
+                // 撮影中フラグをチェック
+                if (m_isRecordingFlag) {
+                    button_22Text = "撮影終了"
+                    button_22BackgroundColor = def_recordingButtonColor
+                } else {
+                    button_22Text = "動画撮影"
+                }
+            }
+            def_cameraModeQr -> {       // QRカメラ
+                qrViewVisibility = View.VISIBLE
+                textView_08Visibility = View.VISIBLE
+                textView_07Text = "QRカメラ"
+                textView_08Text = "NO DATA"
+            }
+        }
+
+        // テクスチャビューの表示切り替え
+        m_textureView.visibility = textureViewVisibility
+        // バーコードビューの表示切り替え
+        m_qrView.visibility = qrViewVisibility
+        // TextView_08表示切り替え
+        setTextView_08Visibility(textView_08Visibility)
+        // Button_22表示切り替え
+        setButton_22Visibility(button_22Visibility)
+        // TextView_06テキストの登録
+        setTextView_06Text(textView_06Text)
+        // TextView_07テキストの登録
+        setTextView_07Text(textView_07Text)
+        // TextView_08テキストの登録
+        setTextView_08Text(textView_08Text)
+        // Button_22テキストの登録
+        setButton_22Text(button_22Text)
+        // Button_22背景色登録
+        setButton_22BackgroundColor(button_22BackgroundColor)
+
+        // バーコードテキスト
+        m_qrText = ""
+    }
+
     // カメラオープン
     private fun openCamera() {
-        // テクスチャビュー利用可能チェック
-        if (m_textureView.isAvailable) {
-            // カメラオープン
-            openCamera(m_textureView.width, m_textureView.height)
-        } else {
-            // テクスチャビューイベント登録
-            m_textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                // テクスチャビュー利用可能
-                override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
+        // カメラモードをチェック
+        when (m_settingData?.getCameraMode()) {
+            def_cameraModePhoto, def_cameraModeVideo -> {   // 写真カメラ・ビデオカメラ
+                // テクスチャビュー利用可能チェック
+                if (m_textureView.isAvailable) {
                     // カメラオープン
-                    openCamera(width, height)
+                    openCamera(m_textureView.width, m_textureView.height)
+                } else {
+                    // テクスチャビューイベント登録
+                    m_textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                        // テクスチャビュー利用可能
+                        override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
+                            // カメラオープン
+                            openCamera(width, height)
+                        }
+                        // テクスチャビューサイズ変更
+                        override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) {}
+                        // テクスチャビュー更新
+                        override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) = Unit
+                        // テクスチャビュー破棄
+                        override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture) = true
+                    }
                 }
-                // テクスチャビューサイズ変更
-                override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) {}
-                // テクスチャビュー更新
-                override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) = Unit
-                // テクスチャビュー破棄
-                override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture) = true
+            }
+            def_cameraModeQr -> {                           // QRカメラ
+                // カレントカメラINDEXを登録
+                m_qrView.barcodeView.cameraSettings.requestedCameraId = m_settingData?.getCameraIndex()!!
+                // QRコード読み取り開始
+                m_qrView.resume()
+                // Button_20テキストの登録
+                setButton_20Text("カメラ終了")
+
+                m_qrView.decodeContinuous(object: BarcodeCallback {
+                    override fun barcodeResult(result: BarcodeResult?) {
+                        if (result == null) {
+                            return
+                        }
+                        if (m_qrText != result.text) {
+                            // バーコードテキストを更新
+                            m_qrText = result.text
+                            // TextView_08テキストの登録
+                            setTextView_08Text(m_qrText)
+                            Log.d("PhotoVideoQrCamera::openCamera", m_qrText.toString())
+                            Toast.makeText(applicationContext, m_qrText, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+
+                    override fun possibleResultPoints(resultPoints: MutableList<ResultPoint>?) { }
+                })
             }
         }
     }
@@ -259,10 +371,8 @@ class PhotoVideoCamera : AppCompatActivity() {
                     // カメラ接続完了
                     override fun onOpened(cameraDevice: CameraDevice) {
                         m_cameraDevice = cameraDevice
-                        // Button_13テキストの登録
-                        setButton_13Text("カメラ終了")
-                        // TextView_03テキストの登録
-                        setTextView_03Text(m_cameraDataList.get(m_settingData?.getCameraIndex()!!)?.m_cameraName.toString())
+                        // Button_20テキストの登録
+                        setButton_20Text("カメラ終了")
                         // プレビュー開始
                         startPreview()
                     }
@@ -283,8 +393,8 @@ class PhotoVideoCamera : AppCompatActivity() {
             )
 
         } catch (ex: Exception) {
-            Log.d("PhotoVideoCamera", ("openCamera -> " + msg))
-            Toast.makeText(this, ("PhotoVideoCamera::openCamera -> " + msg), Toast.LENGTH_SHORT).show()
+            Log.d("PhotoVideoQrCamera", ("openCamera -> " + msg))
+            Toast.makeText(this, ("PhotoVideoQrCamera::openCamera -> " + msg), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -293,17 +403,26 @@ class PhotoVideoCamera : AppCompatActivity() {
         var msg: String = "カメラクローズエラー"
 
         try {
-            // プレビューセッションクローズ
-            closePreviewSession()
-            m_cameraDevice?.close()
-            m_cameraDevice = null
-            m_mediaRecorder?.release()
-            m_mediaRecorder = null
-            // Button_13テキストの登録
-            setButton_13Text("カメラ起動")
+            // カメラモードをチェック
+            when (m_settingData?.getCameraMode()) {
+                def_cameraModePhoto, def_cameraModeVideo -> {   // 写真カメラ・ビデオカメラ
+                    // プレビューセッションクローズ
+                    closePreviewSession()
+                    m_cameraDevice?.close()
+                    m_cameraDevice = null
+                    m_mediaRecorder?.release()
+                    m_mediaRecorder = null
+                }
+                def_cameraModeQr -> {                           // QRカメラ
+                    // QRコード読み取り停止
+                    m_qrView.pause()
+                }
+            }
+            // Button_20テキストの登録
+            setButton_20Text("カメラ起動")
         } catch (ex: Exception) {
-            Log.d("PhotoVideoCamera", ("closeCamera -> " + msg))
-            Toast.makeText(this, ("PhotoVideoCamera::closeCamera -> " + msg), Toast.LENGTH_SHORT).show()
+            Log.d("PhotoVideoQrCamera", ("closeCamera -> " + msg))
+            Toast.makeText(this, ("PhotoVideoQrCamera::closeCamera -> " + msg), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -356,8 +475,8 @@ class PhotoVideoCamera : AppCompatActivity() {
             )
 
         } catch (ex: Exception) {
-            Log.d("PhotoVideoCamera", ("startPreview -> " + msg))
-            Toast.makeText(this, ("PhotoVideoCamera::startPreview -> " + msg), Toast.LENGTH_SHORT).show()
+            Log.d("PhotoVideoQrCamera", ("startPreview -> " + msg))
+            Toast.makeText(this, ("PhotoVideoQrCamera::startPreview -> " + msg), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -379,8 +498,8 @@ class PhotoVideoCamera : AppCompatActivity() {
             m_captureSession?.setRepeatingRequest(m_previewRequestBuilder.build(), null, null)
 
         } catch (e: CameraAccessException) {
-            Log.d("PhotoVideoCamera", ("updatePreview -> " + msg))
-            Toast.makeText(this, ("PhotoVideoCamera::updatePreview -> " + msg), Toast.LENGTH_SHORT).show()
+            Log.d("PhotoVideoQrCamera", ("updatePreview -> " + msg))
+            Toast.makeText(this, ("PhotoVideoQrCamera::updatePreview -> " + msg), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -456,8 +575,8 @@ class PhotoVideoCamera : AppCompatActivity() {
         } catch (ex: Exception) {
             // プレビューセッションクローズ
             closePreviewSession()
-            Log.d("PhotoVideoCamera", ("startRecordingVideo -> " + msg))
-            Toast.makeText(this, ("PhotoVideoCamera::startRecordingVideo -> " + msg), Toast.LENGTH_SHORT).show()
+            Log.d("PhotoVideoQrCamera", ("startRecordingVideo -> " + msg))
+            Toast.makeText(this, ("PhotoVideoQrCamera::startRecordingVideo -> " + msg), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -477,7 +596,7 @@ class PhotoVideoCamera : AppCompatActivity() {
             reset()
         }
 
-        Log.d("PhotoVideoCamera", ("Create Completed : " + m_outputFileName))
+        Log.d("PhotoVideoQrCamera", ("Create Completed : " + m_outputFileName))
         Toast.makeText(this, ("Create Completed : " + m_outputFileName), Toast.LENGTH_SHORT).show()
         // 出力ファイル名
         m_outputFileName = null
@@ -509,7 +628,7 @@ class PhotoVideoCamera : AppCompatActivity() {
             }
 
             // 画面の回転設定取得
-            val rotation = this.windowManager.defaultDisplay.rotation
+            val rotation = windowManager.defaultDisplay.rotation
             // センサーの向きをチェック
             when (m_sensorOrientation) {
                 SENSOR_ORIENTATION_DEFAULT_DEGREES -> {
@@ -558,68 +677,81 @@ class PhotoVideoCamera : AppCompatActivity() {
         return ret
     }
 
-    // TextView_03テキストの登録
-    fun setTextView_03Text(setStr: String) {
+    // TextView_06テキストの登録
+    fun setTextView_06Text(setStr: String) {
         // テキストビュー取得
-        var textView: TextView = findViewById<TextView>(R.id.textView_03)
+        var textView: TextView = findViewById<TextView>(R.id.textView_06)
         textView.text = setStr
     }
 
-    // TextView_04テキストの登録
-    fun setTextView_04Text() {
-        var setStr: String = ""
+    // TextView_07テキストの登録
+    fun setTextView_07Text(setStr: String) {
         // テキストビュー取得
-        var textView: TextView = findViewById<TextView>(R.id.textView_04)
-
-        when (m_settingData?.getCameraMode()) {
-            def_cameraModePhoto -> {
-                setStr = "写真カメラ"
-            }
-            def_cameraModeVideo -> {
-                setStr = "ビデオカメラ"
-            }
-            else -> {
-                setStr = ""
-            }
-        }
+        var textView: TextView = findViewById<TextView>(R.id.textView_07)
         textView.text = setStr
     }
 
-    // Button_13テキストの登録
-    fun setButton_13Text(setStr: String) {
+    // TextView_08テキストの登録
+    fun setTextView_08Text(setStr: String) {
+        // テキストビュー取得
+        var textView: TextView = findViewById<TextView>(R.id.textView_08)
+        textView.text = setStr
+    }
+
+    // TextView_08表示切り替え
+    fun setTextView_08Visibility(visibility: Int) {
+        // テキストビュー取得
+        var textView: TextView = findViewById<TextView>(R.id.textView_08)
+        textView.visibility = visibility
+    }
+
+    // Button_20テキストの登録
+    fun setButton_20Text(setStr: String) {
         // ボタン取得
-        var button: Button = findViewById<Button>(R.id.button_13)
-        when (setStr) {
-            "カメラ起動" -> {
-                button.text = setStr
-            }
-            "カメラ終了" -> {
-                button.text = setStr
-            }
-            else -> {
-                button.text = ""
-            }
-        }
+        var button: Button = findViewById<Button>(R.id.button_20)
+        button.text = setStr
     }
 
-    // ボタンクリックイベント
-    fun onClickButton_12(view: View) {
+    // Button_22テキストの登録
+    fun setButton_22Text(setStr: String) {
+        // ボタン取得
+        var button: Button = findViewById<Button>(R.id.button_22)
+        button.text = setStr
+    }
+
+    // Button_22表示切り替え
+    fun setButton_22Visibility(visibility: Int) {
+        // ボタン取得
+        var button: Button = findViewById<Button>(R.id.button_22)
+        button.visibility = visibility
+    }
+
+    // Button_22背景色登録
+    fun setButton_22BackgroundColor(backgroundColor: Int) {
+        // ボタン取得
+        var button: Button = findViewById<Button>(R.id.button_22)
+        button.setBackgroundColor(backgroundColor)
+    }
+
+    // 「戻る」ボタンクリック
+    fun onClickButton_19(view: View) {
         // ボタンのテキストを取得
         var buttonText = (view as Button).text
-        Log.d("button_12", buttonText.toString())
+        Log.d("button_19", buttonText.toString())
 
         // ボタンのテキストを判定
         when (buttonText) {
             "戻る" -> {
-                this.finish()
+                finish()
             }
         }
     }
 
-    fun onClickButton_13(view: View) {
+    // 「カメラ起動」ボタンクリック
+    fun onClickButton_20(view: View) {
         // ボタンのテキストを取得
         var buttonText = (view as Button).text
-        Log.d("button_13", buttonText.toString())
+        Log.d("button_20", buttonText.toString())
 
         // ボタンのテキストを判定
         when (buttonText) {
@@ -632,10 +764,11 @@ class PhotoVideoCamera : AppCompatActivity() {
         }
     }
 
-    fun onClickButton_14(view: View) {
+    // 「カメラ切替」ボタンクリック
+    fun onClickButton_21(view: View) {
         // ボタンのテキストを取得
         var buttonText = (view as Button).text
-        Log.d("button_14", buttonText.toString())
+        Log.d("button_21", buttonText.toString())
         var index: Int = 0
         // 選択アイテムINDEX
         var selectIndex: Int = m_settingData?.getCameraIndex()!!
@@ -668,6 +801,8 @@ class PhotoVideoCamera : AppCompatActivity() {
                             m_settingData?.setCameraIndex(selectIndex)
                             // カメラクローズ
                             closeCamera()
+                            // 撮影中フラグ登録
+                            setIsRecordingFlag(false)
                             // カメラオープン
                             openCamera()
                         }
@@ -677,7 +812,8 @@ class PhotoVideoCamera : AppCompatActivity() {
         }
     }
 
-    fun onClickButton_15(view: View) {
+    // 「動画撮影」ボタンクリック
+    fun onClickButton_22(view: View) {
         // カレントカメラモードをチェック
         when (m_settingData?.getCameraMode()) {
             def_cameraModePhoto -> {
@@ -700,14 +836,15 @@ class PhotoVideoCamera : AppCompatActivity() {
         }
     }
 
-    fun onClickButton_16(view: View) {
+    // 「モード切替」ボタンクリック
+    fun onClickButton_23(view: View) {
         // ボタンのテキストを取得
         var buttonText = (view as Button).text
-        Log.d("button_16", buttonText.toString())
+        Log.d("button_23", buttonText.toString())
         // 選択アイテムINDEX
         var selectIndex: Int = m_settingData?.getCameraMode()!!
         // モード名リスト
-        var modeNameList: Array<String?> = arrayOf("写真撮影", "動画撮影")
+        var modeNameList: Array<String?> = arrayOf("写真撮影", "動画撮影", "QRコード")
 
         // ボタンのテキストを判定
         when (buttonText) {
@@ -741,38 +878,10 @@ class PhotoVideoCamera : AppCompatActivity() {
 
     // 撮影中フラグ登録
     fun setIsRecordingFlag(recording: Boolean) {
-        // ボタン取得
-        var button: Button = findViewById<Button>(R.id.button_15)
         // 撮影中フラグを更新
         m_isRecordingFlag = recording
-
-        // カレントカメラモードをチェック
-        when (m_settingData?.getCameraMode()) {
-            def_cameraModePhoto -> {
-                // テキスト
-                button.text = "写真撮影"
-                // 背景色（待機中）
-                button.setBackgroundColor(def_waitingButtonColor)
-            }
-            def_cameraModeVideo -> {
-                when (m_isRecordingFlag) {
-                    true -> {
-                        // テキスト
-                        button.text = "撮影終了"
-                        // 背景色（撮影中）
-                        button.setBackgroundColor(def_recordingButtonColor)
-                    }
-                    false -> {
-                        // テキスト
-                        button.text = "動画撮影"
-                        // 背景色（待機中）
-                        button.setBackgroundColor(def_waitingButtonColor)
-                    }
-                }
-            }
-        }
-        // TextView_04テキストの登録
-        setTextView_04Text()
+        // コンポーネントのセットアップ
+        setupComponent()
     }
 
     // 写真撮影
@@ -816,7 +925,7 @@ class PhotoVideoCamera : AppCompatActivity() {
             if (m_textureView.isAvailable) {
                 // 写真ファイル作成
                 if (createPhotoFile(saveFile, m_textureView, format) == true) {
-                    Log.d("PhotoVideoCamera", ("Create Completed : " + fileName))
+                    Log.d("PhotoVideoQrCamera", ("Create Completed : " + fileName))
                     Toast.makeText(this, ("Create Completed : " + fileName), Toast.LENGTH_SHORT).show()
                 } else {
                     msg = "写真ファイル作成エラー"
@@ -826,8 +935,8 @@ class PhotoVideoCamera : AppCompatActivity() {
                 throw Exception(msg)
             }
         } catch (ex: Exception) {
-            Log.d("PhotoVideoCamera", ("photoShooting -> " + msg))
-            Toast.makeText(this, ("PhotoVideoCamera::photoShooting -> " + msg), Toast.LENGTH_SHORT).show()
+            Log.d("PhotoVideoQrCamera", ("photoShooting -> " + msg))
+            Toast.makeText(this, ("PhotoVideoQrCamera::photoShooting -> " + msg), Toast.LENGTH_SHORT).show()
         } finally {
             // プレビューの更新を再開
             m_captureSession?.setRepeatingRequest(m_previewRequestBuilder.build(), null, null)

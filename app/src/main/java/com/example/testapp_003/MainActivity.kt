@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity() {
         val permissions: Array<String?> = arrayOf(
             Manifest.permission.CAMERA,                     // カメラ
             Manifest.permission.RECORD_AUDIO,               // 音声録音
+            Manifest.permission.READ_EXTERNAL_STORAGE,      // ストレージの読み込み
             Manifest.permission.WRITE_EXTERNAL_STORAGE      // ストレージへの書き込み
         )
         // パーミッションのチェック
@@ -91,7 +92,7 @@ class MainActivity : AppCompatActivity() {
     // リストビュー初期化
     fun initListView_01() {
         // リストビューに登録するデータ配列
-        val array = arrayOf("デバイス情報", "カメラ情報", "写真撮影", "動画撮影", "写真・動画撮影")
+        val array = arrayOf("デバイス情報", "カメラ情報", "写真撮影", "動画撮影", "写真・動画撮影", "QRコード", "写真・動画・QRコード")
         // リストビュー取得
         val listView = findViewById<ListView>(R.id.listView_01)
         // ArrayAdapterの生成
@@ -126,6 +127,14 @@ class MainActivity : AppCompatActivity() {
                 "写真・動画撮影" -> {
                     // 写真・動画カメラクラス開始
                     startActivity(Intent(this, PhotoVideoCamera::class.java))
+                }
+                "QRコード" -> {
+                    // QRカメラクラス開始
+                    startActivity(Intent(this, QrCamera::class.java))
+                }
+                "写真・動画・QRコード" -> {
+                    // 写真・動画・QRコードカメラクラス開始
+                    startActivity(Intent(this, PhotoVideoQrCamera::class.java))
                 }
             }
         }
