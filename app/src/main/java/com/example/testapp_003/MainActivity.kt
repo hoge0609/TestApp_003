@@ -21,6 +21,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // アプリケーションコンテキストクラス初期化
+        AppContext.setAppContext(applicationContext)
+
         Log.d("MainActivity", "onCreate")
         Toast.makeText(this, "MainActivity::onCreate", Toast.LENGTH_SHORT).show()
 
@@ -94,7 +97,16 @@ class MainActivity : AppCompatActivity() {
     // リストビュー初期化
     fun initListView_01() {
         // リストビューに登録するデータ配列
-        val array = arrayOf("デバイス情報", "カメラ情報", "写真撮影", "動画撮影", "写真・動画撮影", "QRコード", "写真・動画・QRコード")
+        val array = arrayOf(
+            "デバイス情報",
+            "カメラ情報",
+            "写真撮影",
+            "動画撮影",
+            "写真・動画撮影",
+            "QRコード",
+            "写真・動画・QRコード",
+            "データベース接続"
+        )
         // リストビュー取得
         val listView = findViewById<ListView>(R.id.listView_01)
         // ArrayAdapterの生成
@@ -137,6 +149,10 @@ class MainActivity : AppCompatActivity() {
                 "写真・動画・QRコード" -> {
                     // 写真・動画・QRコードカメラクラス開始
                     startActivity(Intent(this, PhotoVideoQrCamera::class.java))
+                }
+                "データベース接続" -> {
+                    // データベース接続クラス開始
+                    startActivity(Intent(this, DatabaseConnect::class.java))
                 }
             }
         }
